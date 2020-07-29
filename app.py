@@ -16,8 +16,8 @@ app.config.update(
     MAIL_SERVER='smtp.gmail.com',
     MAIL_PORT='465',
     MAIL_USE_SSL = True,
-    MAIL_USERNAME = '***REMOVED***',
-    MAIL_PASSWORD='***REMOVED***'
+    MAIL_USERNAME = 'wszyzdgo@gmail.com',
+    MAIL_PASSWORD='ugtgznuprzejxznl'
 )
 mail = Mail(app)
 
@@ -128,7 +128,7 @@ def send_email(user):
         mail.send_message('Potwierdź rejestracje',
                           recipients=[str(user.email)],
                           html=render_template("index.html", url=request.url_root, email_hash=user.hashed_email),
-                          sender="***REMOVED***")
+                          sender="wszyzdgo@gmail.com")
     except SMTPRecipientsRefused:
         return jsonify("{'Succes': False,"
                        "'Error': 'Bad email address'")
