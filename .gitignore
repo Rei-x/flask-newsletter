@@ -1,0 +1,9 @@
+config.py
+secret.txt
+test.db
+.vscode/
+env/
+.git.bfg-report/
+.idea/
+__pycache__/
+newsletter/__pycache__/
