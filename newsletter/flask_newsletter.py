@@ -1,4 +1,4 @@
-from flask import request, render_template, jsonify, url_for
+from flask import request, render_template, jsonify, url_for, redirect
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug import exceptions
 from flask_mail import Mail
@@ -24,9 +24,9 @@ class Newsletter:
 
         class Client(db.Model):
             id = db.Column(db.Integer, primary_key=True)
-            name = db.Column(db.String(20), nullable=False)
-            surname = db.Column(db.String(20), nullable=False)
-            email = db.Column(db.String(20), nullable=False, unique=True)
+            name = db.Column(db.String(40), nullable=False)
+            surname = db.Column(db.String(40), nullable=False)
+            email = db.Column(db.String(40), nullable=False, unique=True)
             confirmed = db.Column(db.Boolean, nullable=False, default=False)
             hashed_email = db.Column(db.String(128))
 
@@ -52,6 +52,7 @@ class Newsletter:
             email = request.form['email']
             name = request.form['name']
             surname = request.form['surname']
+            website = request.args['redirect']
         except exceptions.BadRequestKeyError as e:
             return e
 
@@ -63,7 +64,7 @@ class Newsletter:
         if self.client_exists(new_user):
             return error("AlreadySignedUp")
         elif self.email_exists_in_db(new_user):
-            return self.send_email(new_user)
+            return self.send_email(new_user, website)
 
         try:
             self.db.session.add(new_user)
@@ -75,16 +76,17 @@ class Newsletter:
         except Exception:
             return error("Unexpected")
 
-        return self.send_email(new_user)
+        return self.send_email(new_user, website)
 
     def confirm_email(self):
+        website = request.args['redirect']
         user = self.Client.query.filter_by(hashed_email=request.args.get("id")).first()
         if user is not None:
             if user.confirmed is True:
                 return error("AlreadySignedUp")
             user.confirmed = True
             self.db.session.commit()
-            return jsonify(succes=True)
+            return redirect(website)
         else:
             return error("DoesntExist")
 
@@ -97,19 +99,23 @@ class Newsletter:
         else:
             return error("DoesntExist")
 
-    def send_email(self, user):
+    def send_email(self, user, website):
         try:
             self.mail.send_message('Potwierdź rejestracje',
                                    recipients=[str(user.email)],
-                                   html=render_template(self.template_file, id=user.hashed_email),
+                                   html=render_template(self.template_file, id=user.hashed_email, website=website),
                                    sender=self.mail_username)
         except SMTPRecipientsRefused:
             return error("InvalidEmail")
         return jsonify(success=True)
 
-    @staticmethod
-    def create_removal_link(user):
-        return str(url_for('remove_email', id=user.hashed_email))
+    def create_removal_link(self, email):
+        user = self.Client.query.filter_by(email=email).first()
+        return str(url_for('remove_email', _external=True, id=user.hashed_email))
+
+    def create_confirm_link(self, email):
+        user = self.Client.query.filter_by(email=email).first()
+        return str(url_for('confirm_email', _external=True, id=user.hashed_email))
 
     def client_exists(self, client):
         if self.Client.query.filter_by(email=client.email, confirmed=True).first() is not None:
