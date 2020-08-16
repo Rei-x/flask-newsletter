@@ -6,7 +6,8 @@ error_codes = {
     "AlreadySignedUp": "Email is already signed up",
     "Operational": "Operational error",
     "Unexpected": "Unexpected error",
-    "DoesntExist": "Email doesn't exist"
+    "DoesntExist": "Email doesn't exist",
+    "BadCaptcha": "ReCaptcha error"
 }
 
 

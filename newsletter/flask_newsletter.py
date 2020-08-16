@@ -1,5 +1,6 @@
 from flask import request, render_template, jsonify, url_for, redirect
 from flask_sqlalchemy import SQLAlchemy
+from flask_cors import CORS
 from werkzeug import exceptions
 from flask_mail import Mail
 from flask_hashing import Hashing
@@ -7,16 +8,20 @@ from smtplib import SMTPRecipientsRefused
 from sqlalchemy.exc import IntegrityError, OperationalError
 from newsletter.error_codes import error
 import re
+import requests
+import json
 
 
 class Newsletter:
 
-    def __init__(self, app):
+    recaptcha_url = "https://www.google.com/recaptcha/api/siteverify"
 
+    def __init__(self, app):
+        app.config['MAIL_DEFAULT_SENDER'] = app.config['MAIL_USERNAME']
         self.db = db = SQLAlchemy(app)
         self.hashing = hashing = Hashing(app)
         self.mail = Mail(app)
-
+        CORS(app)
         self.mail_username = app.config['MAIL_USERNAME']
         self.template_file = app.config['NEWSLETTER_TEMPLATE']
         self.email_title = app.config['NEWSLETTER_EMAIL_TITLE']
@@ -53,8 +58,8 @@ class Newsletter:
             name = request.form['name']
             surname = request.form['surname']
             website = request.args['redirect']
-        except exceptions.BadRequestKeyError as e:
-            return e
+        except exceptions.BadRequestKeyError:
+            return error("BadRequest")
 
         if not self.validate_email(email):
             return error("InvalidEmail")
@@ -77,6 +82,20 @@ class Newsletter:
             return error("Unexpected")
 
         return self.send_email(new_user, website)
+
+    @staticmethod
+    def is_recaptcha_valid(secret, recaptcha_url="https://www.google.com/recaptcha/api/siteverify"):
+        try:
+            response = request.args['response']
+        except exceptions.BadRequestKeyError:
+            return error("BadRequest")
+
+        data = {'response': response,
+                'secret': secret}
+        if json.loads(requests.post(recaptcha_url, data).text)['success'] is False:
+            return False
+        else:
+            return True
 
     def confirm_email(self):
         website = request.args['redirect']
@@ -103,8 +122,9 @@ class Newsletter:
         try:
             self.mail.send_message('Potwierdź rejestracje',
                                    recipients=[str(user.email)],
-                                   html=render_template(self.template_file, id=user.hashed_email, website=website),
-                                   sender=self.mail_username)
+                                   html=render_template(self.template_file, id=user.hashed_email,
+                                                        website=website, name=user.name,
+                                                        sender=self.mail_username))
         except SMTPRecipientsRefused:
             return error("InvalidEmail")
         return jsonify(success=True)

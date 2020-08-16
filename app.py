@@ -1,5 +1,5 @@
 from flask import Flask
-from newsletter.flask_newsletter import Newsletter
+from newsletter.flask_newsletter import Newsletter, error
 import config as cfg
 
 app = Flask(__name__)
@@ -11,8 +11,9 @@ app.config.update(
 
 # Newsletter config
 app.config.update(
-    NEWSLETTER_TEMPLATE = 'index.html',
-    NEWSLETTER_EMAIL_TITLE = 'Potwierdź rejestracje')
+    NEWSLETTER_TEMPLATE='email_template.html',
+    NEWSLETTER_EMAIL_TITLE='Potwierdź rejestracje',
+    NEWSLETTER_RECAPTCHA_V3=True)
 
 # FlaskMail config
 app.config.update(
@@ -44,7 +45,10 @@ def home():
 # email - required
 @app.route("/add_email", methods=["POST"])
 def add_email():
-    return newsletter.new_email_to_newsletter()
+    if newsletter.is_recaptcha_valid(cfg.RECAPTCHA_SECRET):
+        return newsletter.new_email_to_newsletter()
+    else:
+        return error("BadCaptcha")
 
 
 # Function accepts one argument by GET method
